@@ -180,7 +180,23 @@ class DrqaAgent(Agent):
         self.episode_done = observation['episode_done']
         return observation
 
-    def act(self):
+    def get_text_and_spans(self):
+        ex = self._build_ex(self.observation)
+        spans = ex[-1]
+        text = ex[-2]
+        return text, spans
+
+    def get_span_inverse(self):
+        text, spans = self.get_text_and_spans()
+        shape = (len(spans), len(spans))
+        inverse = []
+        for i in range(len(spans) ** 2):
+            start, end = np.unravel_index(i, shape)
+            s_offset, e_offset = spans[start][0], spans[end][1]
+            inverse.append(text[s_offset:e_offset])
+        return inverse
+
+    def act(self, get_score=False, get_all_scores=False):
         """Update or predict on a single example (batchsize = 1)."""
         if self.is_shared:
             raise RuntimeError("Parallel act is not supported.")
@@ -199,7 +215,8 @@ class DrqaAgent(Agent):
             self.n_examples += 1
             self.model.update(batch)
         else:
-            reply['text'] = self.model.predict(batch)[0]
+            reply['text'] = self.model.predict(batch, get_score=get_score,
+                                               get_all_scores=get_all_scores)[0]
 
         return reply
 

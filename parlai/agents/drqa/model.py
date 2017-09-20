@@ -116,7 +116,7 @@ class DocReaderModel(object):
         # Reset any partially fixed parameters (e.g. rare words)
         self.reset_parameters()
 
-    def predict(self, ex):
+    def predict(self, ex, get_score=False, get_all_scores=False):
         # Eval mode
         self.network.eval()
 
@@ -137,16 +137,31 @@ class DocReaderModel(object):
         # Get argmax text spans
         text = ex[-2]
         spans = ex[-1]
+        i = 0
+        # print(spans[0][40],spans[0][41])
+        # s_idx = 40
+        # e_idx = 41
+        # s_offset, e_offset = spans[i][s_idx][0], spans[i][e_idx][1]
         predictions = []
         max_len = self.opt['max_len'] or score_s.size(1)
+        scorez = []
+        all_scores = []
         for i in range(score_s.size(0)):
             scores = torch.ger(score_s[i], score_e[i])
             scores.triu_().tril_(max_len - 1)
             scores = scores.numpy()
+            if get_all_scores:
+                all_scores.append(scores.flatten())
+                continue
             s_idx, e_idx = np.unravel_index(np.argmax(scores), scores.shape)
             s_offset, e_offset = spans[i][s_idx][0], spans[i][e_idx][1]
             predictions.append(text[i][s_offset:e_offset])
-
+            if get_score:
+                scorez.append(np.max(scores))
+        if get_score:
+            return list(zip(predictions, scorez))
+        if get_all_scores:
+            return np.array(all_scores)
         return predictions
 
     def reset_parameters(self):
